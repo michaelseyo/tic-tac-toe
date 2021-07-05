@@ -15,8 +15,8 @@ p {
 
 .grid {
     display: grid;
-    grid-template-rows: repeat(3, 80px);
-    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(3, 90px);
+    grid-template-columns: repeat(3, 90px);
 }
 
 div {

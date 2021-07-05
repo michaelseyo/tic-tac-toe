@@ -1,107 +1,210 @@
 // create gameboard
 const gameboard = (() => {
-    let boardArray = Array(9).fill('');
+    let arr = Array(9);
+
+    for (let i = 0; i < 9; i++) {
+        arr[i] = `${i}`;
+    }
+
+    const reset = function() {
+        for (let i = 0; i < 9; i++) {
+            arr[i] = `${i}`;
+        }
+    };
+
+    const emptyIndexes = function() {
+        return arr.filter(elem => elem !== "x" && elem != "o");
+    };
+
     return {
-        boardArray,
-    };            
+        arr,
+        emptyIndexes,
+        reset,
+    };    
 })();
 
 // create player
 const Player = (name) => {
-    let move = "";
+    let move = "x";
     return {
         name,
         move,
     };
 };
 
+const com = (() => { // com move is "o";
+    let move = "o";
+
+    const scores = {
+        'x': {score: -1}, 
+        'o': {score: 1}, 
+        'tie': {score: 0},
+    };
+
+    const nextMove = function() {
+        let bestSpot = minimax(gameboard.arr, com.move);  
+        let bestIndex = bestSpot.index;
+
+        const moveContainer = document.querySelector(`#container${bestIndex}`);
+        displayController.addImg(moveContainer, bestIndex, com.move);
+    };
+
+    const minimax = function(board, player) {
+        let availableSpots = gameboard.emptyIndexes();
+        let winner = displayController.isWinner(player);
+
+        if (winner !== null) {
+            return scores[winner]; 
+        }
+
+        let moves = [];
+
+        for (let i = 0; i < availableSpots.length; i++) {
+            let currentMove = {};
+            // save original index        
+            currentMove.index = board[availableSpots[i]]; 
+            board[availableSpots[i]] = player; 
+
+            // alternating turns
+            if (player === com.move) {
+                let result = minimax(board, human.move);
+                currentMove.score = result.score;
+            } else { 
+                let result = minimax(board, com.move);
+                currentMove.score = result.score;
+            }
+
+            // reset back
+            board[availableSpots[i]] = currentMove.index;
+            moves.push(currentMove);
+        };
+
+        let bestMove;
+        if (player === com.move) {
+            let bestScore = -Infinity;
+            for (let i = 0; i < moves.length; i++) {
+                // the bestMove is the one with the highest score 
+                if (moves[i].score > bestScore) { 
+                    bestScore = moves[i].score;
+                    bestMove = i;
+                } 
+            }
+        } else {
+            let bestScore = Infinity;
+            for (let i = 0; i < moves.length; i++) { 
+                // the bestMove is the one with the lowest score
+                if (moves[i].score < bestScore) {
+                    bestScore = moves[i].score;
+                    bestMove = i;
+                } 
+            }
+        }
+        return moves[bestMove];
+    };
+    // to ensure the smartest AI, we could have the depth; moves that can win in least depth is higher score
+    return {
+        move,
+        nextMove,
+    }
+})();
+
+const human = Player("Human");
+
 // control the flow of the game
 const displayController = (() => {
-    const player1 = Player("1");
-    const player2 = Player("2");
-    let currentTurn = player1;
     let gameOver = false;
+    let currentTurn = human;
     const grid = document.querySelector(".grid");
     const resultMsg = document.querySelector("#results-message");
 
+    const addImg = function(container, index, currentMove) {
+        gameboard.arr[index] = currentMove
+        const moveIcon = document.createElement("img");
+        moveIcon.id = "move-icon";
+        moveIcon.src = `icons/${currentMove}.png`;
+        container.appendChild(moveIcon);
+    };
+
     const displayMove = function() {
+        console.log(gameOver);
         if (!this.hasChildNodes() && !gameOver) {
-            const moveIcon = document.createElement("img");
-            moveIcon.id = "move-icon";
-            if (currentTurn === player1) {
-                gameboard.boardArray[this.id] = player1.move;
-                moveIcon.src = `icons/${player1.move}.png`;
-                currentTurn = player2;
-            } else {
-                gameboard.boardArray[this.id] = player2.move;
-                moveIcon.src = `icons/${player2.move}.png`;
-                currentTurn = player1;
+            if (currentTurn === human) {
+                const index = this.id.slice(-1);
+                addImg(this, index, human.move);
+                checkWin(human.move);
+                currentTurn = com;
+
+                if (!gameOver) {
+                    com.nextMove();
+                    checkWin(com.move);
+                    currentTurn = human;    
+                }
             }
-            this.appendChild(moveIcon);
         }
     };
 
     const isFull = function() {
-        return (gameboard.boardArray.every(move => move));
-    }
+        return (gameboard.emptyIndexes().length === 0) ? true : false;
+    };
 
-    const checkGameOver = function() {
-        const rowCombiA = Array(gameboard.boardArray[0], gameboard.boardArray[1], gameboard.boardArray[2]);
-        const rowCombiB = Array(gameboard.boardArray[3], gameboard.boardArray[4], gameboard.boardArray[5]);
-        const rowCombiC = Array(gameboard.boardArray[6], gameboard.boardArray[7], gameboard.boardArray[8]);
-        const colCombiA = Array(gameboard.boardArray[0], gameboard.boardArray[3], gameboard.boardArray[6]);
-        const colCombiB = Array(gameboard.boardArray[1], gameboard.boardArray[4], gameboard.boardArray[7]);
-        const colCombiC = Array(gameboard.boardArray[2], gameboard.boardArray[5], gameboard.boardArray[8]);
-        const diagonalCombiA = Array(gameboard.boardArray[0], gameboard.boardArray[4], gameboard.boardArray[8]);
-        const diagonalCombiB = Array(gameboard.boardArray[2], gameboard.boardArray[4], gameboard.boardArray[6]);
-        
-        if (!gameOver) {
-            if (rowCombiA.every(move => move === rowCombiA[0] && move) || 
-                rowCombiB.every(move => move === rowCombiB[0] && move) ||
-                rowCombiC.every(move => move === rowCombiC[0] && move) || 
-                colCombiA.every(move => move === colCombiA[0] && move) ||
-                colCombiB.every(move => move === colCombiB[0] && move) || 
-                colCombiC.every(move => move === colCombiC[0] && move) ||
-                diagonalCombiA.every(move => move === diagonalCombiA[0] && move) ||
-                diagonalCombiB.every(move => move === diagonalCombiB[0] && move)) {
-                    const move = this.firstChild.src.slice(-5, -4);
-                    resultMsg.textContent = (move === "x") ? "Player1 wins!" : "Player2 wins!";
-                    gameOver = true;
-            } else if (isFull()) {
-                resultMsg.textContent = "Tie!";
-                gameOver = true;
-            }
+    const isWinner = function(move) {   
+        if (
+            (gameboard.arr[0] === move && gameboard.arr[1] === move && gameboard.arr[2] === move) ||
+            (gameboard.arr[3] === move && gameboard.arr[4] === move && gameboard.arr[5] === move) ||
+            (gameboard.arr[6] === move && gameboard.arr[7] === move && gameboard.arr[8] === move) ||
+            (gameboard.arr[0] === move && gameboard.arr[3] === move && gameboard.arr[6] === move) ||
+            (gameboard.arr[1] === move && gameboard.arr[4] === move && gameboard.arr[7] === move) ||
+            (gameboard.arr[2] === move && gameboard.arr[5] === move && gameboard.arr[8] === move) ||
+            (gameboard.arr[0] === move && gameboard.arr[4] === move && gameboard.arr[8] === move) ||
+            (gameboard.arr[2] === move && gameboard.arr[4] === move && gameboard.arr[6] === move)
+        ) {
+            return move;
         }
+
+        // the above will process the relevant wins if there is any if not goes to here
+        if (isFull()) {
+            return 'tie';
+        } else {
+            return null;
+        }
+    };
+
+    const checkWin = function(move) {
+        const winner = isWinner(move);
+        if (winner === "tie") {
+            resultMsg.textContent = "Tie!";
+            gameOver = true;
+        } else if (winner) {
+            resultMsg.textContent = (winner === "x") ? `${human.name} win!` : `Com win!`;
+            gameOver = true;
+        } 
     };
 
     const reset = function() {
         const imgs = document.querySelectorAll("#move-icon");
         imgs.forEach(img => img.parentElement.removeChild(img));
-        gameboard.boardArray = Array(9).fill("");
+        gameboard.reset();
         resultMsg.textContent = "";
-        
         gameOver = false;
-        currentTurn = player1;
-        // console.log(gameboard.boardArray);
+        currentTurn = human;
     }
 
     const setupGrid = function() {
-        player1.move = "x";
-        player2.move = "o";
         const resetBtn = document.querySelector("#reset");
         resetBtn.addEventListener("click", reset);
     
-        for (let i = 0; i < gameboard.boardArray.length; i++) {
+        for (let i = 0; i < 9; i++) {
             const moveContainer = document.createElement("div");
-            moveContainer.id = i;
+            moveContainer.id = `container${i}`;
             moveContainer.addEventListener("click", displayMove.bind(moveContainer));
-            moveContainer.addEventListener("click", checkGameOver);
             grid.appendChild(moveContainer);
         } 
     };
 
     return {
         setupGrid,
+        isWinner,
+        addImg,
     };
 })();
 
